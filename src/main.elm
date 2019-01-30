@@ -1,57 +1,74 @@
 import Browser
-import Html exposing (Html, text, pre)
-import Http
+import Browser.Navigation as Nav
+import Html exposing (..)
+import Html.Attributes exposing (..)
+import Url
 
 -- MAIN
+main : Program () Model Msg
 main =
-  Browser.element
+  Browser.application
     { init = init
+    , view = view
     , update = update
     , subscriptions = subscriptions
-    , view = view
+    , onUrlChange = UrlChanged
+    , onUrlRequest = LinkClicked
     }
 
 -- MODEL
-type Model
-  = Failure
-  | Loading
-  | Success String
+type alias Model =
+  { key : Nav.Key
+  , url : Url.Url
+  }
 
-init : () -> (Model, Cmd Msg)
-init _ =
-  ( Loading
-  , Http.get
-      { url = "https://elm-lang.org/assets/public-opinion.txt"
-      , expect = Http.expectString GotText
-      }
-  )
+init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init flags url key =
+  ( Model key url, Cmd.none )
 
 -- UPDATE
 type Msg
-  = GotText (Result Http.Error String)
+  = LinkClicked Browser.UrlRequest
+  | UrlChanged Url.Url
 
-update : Msg -> Model -> (Model, Cmd Msg)
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
-    GotText result ->
-      case result of
-        Ok fullText ->
-          (Success fullText, Cmd.none)
-        Err _ ->
-          (Failure, Cmd.none)
+    LinkClicked urlRequest ->
+      case urlRequest of
+        Browser.Internal url ->
+          ( model, Nav.pushUrl model.key (Url.toString url) )
+
+        Browser.External href ->
+          ( model, Nav.load href )
+
+    UrlChanged url ->
+      ( { model | url = url }
+      , Cmd.none
+      )
 
 -- SUBSCRIPTIONS
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
   Sub.none
 
 -- VIEW
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
-  case model of
-    Failure ->
-      text "I was unable to load your book."
-    Loading ->
-      text "Loading..."
-    Success fullText ->
-      pre [] [ text fullText ]
+  { title = "URL Interceptor"
+  , body =
+    [ text "The current URL is: "
+    , b [] [ text (Url.toString model.url) ]
+    , ul []
+      [ viewLink "/home"
+      , viewLink "/profile"
+      , viewLink "/reviews/the-century-of-the-self"
+      , viewLink "/reviews/public-opinion"
+      , viewLink "/reviews/shah-of-shahs"
+      ]
+    ]
+  }
+
+viewLink : String -> Html msg
+viewLink path =
+  li [] [ a [ href path ] [ text path ] ]
