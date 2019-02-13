@@ -19,17 +19,20 @@ main =
     }
 
 -- MODEL
+type Status = Waiting | Summary | Show
+
 type alias Model =
   { key : Nav.Key
   , url : Url.Url
   , message : String
+  , status: Status
   }
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
-  ( Model key url "init"
+  ( Model key url "init" Waiting
   , Http.get
-      { url = "http://slides.test/slides-backend/src/index.php?show=abcd"
+      { url = "https://michaelclaybaugh.com/slides/slides-api/src/"
       , expect = Http.expectString GotSummary
       }
   )
@@ -59,7 +62,7 @@ update msg model =
     GotSummary result ->
       case result of
         Ok goodString ->
-          ( { model | message = goodString }
+          ( { model | message = goodString, status = Summary }
           , Cmd.none
           )
         Err error ->
@@ -89,8 +92,24 @@ subscriptions _ =
 -- VIEW
 view : Model -> Browser.Document Msg
 view model =
-  { title = "Elm Slides"
-  , body =
-    [ div [class "container__summary"] [text model.message]
-    ]
-  }
+  let status = model.status
+  in
+    case status of
+      Waiting ->
+        { title = "Elm Slides"
+        , body =
+          [ div [class "loading"] [text "Loading..."]
+          ]
+        }
+      Summary ->
+        { title = "Elm Slides"
+        , body =
+          [ div [class "container__summary"] [text model.message]
+          ]
+        }
+      Show ->
+        { title = "Elm Slides"
+        , body =
+          [ div [class "container__summary"] [text "Show Here"]
+          ]
+        }
