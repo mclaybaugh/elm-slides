@@ -4,7 +4,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Url
 import Http
-import Json.Decode as D
+import Json.Decode as D exposing (..)
 
 -- MAIN
 main : Program () Model Msg
@@ -20,20 +20,24 @@ main =
 
 -- MODEL
 type Status = Waiting | Summary | Show
-
+type alias ShowSummary =
+  { title  : String
+  , length : Int
+  }
 type alias Model =
-  { key : Nav.Key
-  , url : Url.Url
+  { key     : Nav.Key
+  , url     : Url.Url
   , message : String
-  , status: Status
+  , status  : Status
+  , summaries : List ShowSummary
   }
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
-  ( Model key url "init" Waiting
+  ( Model key url "init" Waiting []
   , Http.get
       { url = "https://michaelclaybaugh.com/slides/slides-api/src/"
-      , expect = Http.expectString GotSummary
+      , expect = Http.expectJson GotSummary summaryDecoder
       }
   )
 
@@ -41,7 +45,7 @@ init flags url key =
 type Msg
   = LinkClicked Browser.UrlRequest
   | UrlChanged Url.Url
-  | GotSummary (Result Http.Error String)
+  | GotSummary (Result Http.Error (List ShowSummary))
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -61,8 +65,10 @@ update msg model =
 
     GotSummary result ->
       case result of
-        Ok goodString ->
-          ( { model | message = goodString, status = Summary }
+        Ok summaries ->
+          ( { model | summaries = summaries
+                    , status = Summary 
+                    , message = "You need to write a view function, dummy."}
           , Cmd.none
           )
         Err error ->
@@ -113,3 +119,10 @@ view model =
           [ div [class "container__summary"] [text "Show Here"]
           ]
         }
+
+-- JSON Decoders
+summaryDecoder : Decoder (List ShowSummary)
+summaryDecoder =
+  D.list (D.map2 ShowSummary
+    (field "title" D.string)
+    (field "length" D.int))
